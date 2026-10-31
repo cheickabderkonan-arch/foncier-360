@@ -7,70 +7,126 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum UserRole {
-  ADMIN
-  DIRECTOR
-  COMMERCIAL
-  ACCOUNTANT
-  FIELD_AGENT
-  INVESTOR
-}
-
-enum ProjectStatus {
-  DRAFT
-  ACTIVE
-  COMPLETED
-  ARCHIVED
-}
-
-enum LotStatus {
-  AVAILABLE
-  RESERVED
-  SOLD
-  ASSIGNED
-  BLOCKED
-}
+enum UserRole { ADMIN DIRECTOR COMMERCIAL ACCOUNTANT FIELD_AGENT INVESTOR }
+enum ProjectStatus { DRAFT ACTIVE COMPLETED ARCHIVED }
+enum LotStatus { AVAILABLE RESERVED SOLD ASSIGNED BLOCKED }
+enum ReservationStatus { PENDING CONFIRMED CANCELLED CONVERTED_TO_SALE }
+enum PaymentStatus { PENDING PARTIAL PAID OVERDUE }
+enum ExpenseStatus { PLANNED COMMITTED PAID }
+enum DocumentType { TITLE CONTRACT RECEIPT PERMIT CERTIFICATE OTHER }
 
 model Organization {
-  id        String    @id @default(cuid())
-  name      String
-  createdAt DateTime  @default(now())
-  users     User[]
-  projects  Project[]
+  id String @id @default(cuid())
+  name String
+  createdAt DateTime @default(now())
+  users User[]
+  projects Project[]
+  customers Customer[]
 }
-
 model User {
-  id             String       @id @default(cuid())
-  email          String       @unique
-  name           String
-  role           UserRole     @default(DIRECTOR)
+  id String @id @default(cuid())
+  email String @unique
+  name String
+  role UserRole @default(DIRECTOR)
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdAt      DateTime     @default(now())
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 }
-
 model Project {
-  id             String        @id @default(cuid())
-  name           String
-  location       String?
-  status         ProjectStatus @default(DRAFT)
-  totalAreaM2    Decimal?
+  id String @id @default(cuid())
+  name String
+  location String?
+  status ProjectStatus @default(DRAFT)
+  totalAreaM2 Decimal?
   organizationId String
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  lots           Lot[]
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lots Lot[]
+  works Work[]
+  expenses Expense[]
+  documents Document[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
-
 model Lot {
-  id          String    @id @default(cuid())
-  code        String
-  areaM2      Decimal
-  price       Decimal
-  status      LotStatus @default(AVAILABLE)
-  projectId   String
-  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id String @id @default(cuid())
+  code String
+  areaM2 Decimal
+  price Decimal
+  status LotStatus @default(AVAILABLE)
+  projectId String
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reservations Reservation[]
+  sale Sale?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   @@unique([projectId, code])
+}
+model Customer {
+  id String @id @default(cuid())
+  fullName String
+  phone String?
+  email String?
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reservations Reservation[]
+  sales Sale[]
+  createdAt DateTime @default(now())
+}
+model Reservation {
+  id String @id @default(cuid())
+  lotId String
+  lot Lot @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  customerId String
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  amount Decimal
+  status ReservationStatus @default(PENDING)
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+}
+model Sale {
+  id String @id @default(cuid())
+  lotId String @unique
+  lot Lot @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  customerId String
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  totalAmount Decimal
+  payments Payment[]
+  soldAt DateTime @default(now())
+}
+model Payment {
+  id String @id @default(cuid())
+  saleId String
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  amount Decimal
+  status PaymentStatus @default(PAID)
+  paidAt DateTime @default(now())
+  reference String?
+}
+model Work {
+  id String @id @default(cuid())
+  projectId String
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name String
+  budget Decimal
+  status ExpenseStatus @default(PLANNED)
+  createdAt DateTime @default(now())
+}
+model Expense {
+  id String @id @default(cuid())
+  projectId String
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  label String
+  amount Decimal
+  status ExpenseStatus @default(PLANNED)
+  incurredAt DateTime @default(now())
+}
+model Document {
+  id String @id @default(cuid())
+  projectId String
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name String
+  type DocumentType @default(OTHER)
+  url String
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
 }
